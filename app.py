@@ -30,26 +30,28 @@ def home():
 # app.py
 @app.route('/pets')
 def index():
-  connection = get_db_connection()
-  cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+  try:
+    connection = get_db_connection()
+    cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-  # query
-  query = "SELECT * FROM pets"
-  cursor.execute(query)
+    # query
+    query = "SELECT * FROM pets;"
+    cursor.execute(query)
 
-  pets = cursor.fetchall()
-  connection.close()
-  return pets
+    pets = cursor.fetchall()
+    connection.close()
+    return pets, 200
+  except Exception:
+    return "Application Error", 500
 
 @app.route('/pets', methods=['POST'])
 def create_pet():
   try:
-    new_pet = request.json
-
+    pet_data = request.json
     # first grab the fields from the converted req.body
-    name = new_pet['name']
-    age = new_pet['age']
-    breed = new_pet['breed']
+    name = pet_data['name']
+    age = pet_data['age']
+    breed = pet_data['breed']
 
     # connect to the database
     connection = get_db_connection()
@@ -72,12 +74,51 @@ def create_pet():
     return str(e), 400
 
 
+@app.route('/pets/<pet_id>', methods=['GET'])
+def show_pet(pet_id):
+    try:
+      # connect to the database
+      connection = get_db_connection()
+      cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
+      # setup the SQL query
+      query = "SELECT * FROM pets WHERE id = %s;"
+      value = (pet_id)
 
+      # execute the query
+      cursor.execute(query, value)
+      pet = cursor.fetchone()
+      # check if the pet exists else return pet
+      if pet is None:
+        connection.close()
+        return " Pet Not Found", 404
+      else:
+      # close the connection
+        connection.close()
+        return pet, 200
+    except Exception as e:
+      return str(e), 400
 
+@app.route('/pets/<pet_id>', methods=['DELETE'])
+def delete_pet(pet_id):
+  try:
+     # connect to the database
+      connection = get_db_connection()
+      cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
+       # setup the SQL query
+      query = "DELETE FROM pets WHERE id = %s;"
+      value = (pet_id)
 
-  return new_pet
+      # execute the query
+      cursor.execute(query, value)
 
+      # make the changes final
+      connection.commit()
+      connection.close()
+      return "Pet deleted successfully", 204
+
+  except Exception as e:
+    return str(e), 400
 # Run our application, by default on port 5000
 app.run()
