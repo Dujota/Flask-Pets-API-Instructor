@@ -1,5 +1,6 @@
 # Import the 'Flask' class from the 'flask' library.
 from flask import Flask, request
+from flask_cors import CORS
 from dotenv import load_dotenv
 import os
 import psycopg2, psycopg2.extras
@@ -20,6 +21,7 @@ def get_db_connection():
 # We'll use the pre-defined global '__name__' variable to tell Flask where it is.
 app = Flask(__name__)
 
+CORS(app)
 # Define our route
 # This syntax is using a Python decorator, which is essentially a succinct way to wrap a function in another function.
 @app.route('/')
@@ -120,5 +122,44 @@ def delete_pet(pet_id):
 
   except Exception as e:
     return str(e), 400
+
+@app.route('/pets/<pet_id>', methods=['PUT'])
+def update_pet(pet_id):
+    try:
+      # connect to the database
+      connection = get_db_connection()
+      cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+      # grab the fields from the converted req.body
+      pet_data = request.json
+
+      name = pet_data['name']
+      age = pet_data['age']
+      breed = pet_data['breed']
+
+       # setup the SQL query
+      query = "UPDATE pets set name = %s, age = %s, breed = %s WHERE id = %s RETURNING *;"
+      value = (name, age, breed, pet_id)
+
+      # execute the query
+      cursor.execute(query, value)
+      pet = cursor.fetchone()
+
+      if pet is None:
+        connection.close()
+        return " Pet Not Found", 404
+      else:
+        # make the changes final
+        connection.commit()
+        connection.close()
+        return pet, 202
+
+    except Exception as e:
+      return str(e), 400
+
+
+
+
+
 # Run our application, by default on port 5000
 app.run()
